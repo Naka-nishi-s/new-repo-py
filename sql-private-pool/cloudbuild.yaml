@@ -9,11 +9,13 @@ steps:
 
   - id: "migration"
     name: "${_IMAGE_NAME}"
-    dir: sql-private-pool
+    # dir: sql-private-pool
+    dir: sql-proxy
     env:
-      - "DATABASE_NAME=mydatabase"
-      - "DATABASE_USER=myuser"
+      - "DATABASE_NAME=abcmart"
+      - "DATABASE_USER=root"
       - "DATABASE_HOST=${_DATABASE_HOST}"
+      - "DATABASE_PORT=${_DATABASE_PORT}"
       - "DATABASE_TYPE=${_DATABASE_TYPE}"
     secretEnv:
       - DATABASE_PASS
@@ -22,13 +24,16 @@ steps:
 
 options:
   pool:
-    name: projects/$PROJECT_ID/locations/us-central1/workerPools/private-pool
+    name: projects/$PROJECT_ID/locations/asia-northeast1/workerPools/shimizu-private-pool
   dynamic_substitutions: true
 
 substitutions:
+  # _DATABASE_HOST: 10.10.1.3:3306
   _DATABASE_PASSWORD_KEY: database_password
-  _DATABASE_TYPE: postgres
+  _DATABASE_TYPE: mysql
   _IMAGE_NAME: gcr.io/${PROJECT_ID}/sample-private-pool
+  _DATABASE_HOST: 10.10.1.3
+  _DATABASE_PORT: "3306"
 
 availableSecrets:
   secretManager:

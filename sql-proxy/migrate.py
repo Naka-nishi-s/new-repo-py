@@ -4,22 +4,14 @@ import sqlalchemy
 
 
 def connect_tcp_socket() -> sqlalchemy.engine.base.Engine:
-    """Initializes a TCP connection pool for a Cloud SQL instance of MySQL."""
-    # Note: Saving credentials in environment variables is convenient, but not
-    # secure - consider a more secure solution such as
-    # Cloud Secret Manager (https://cloud.google.com/secret-manager) to help
-    # keep secrets safe.
-    db_host = os.environ[
-        "INSTANCE_HOST"
-    ]  # e.g. '127.0.0.1' ('172.17.0.1' if deployed to GAE Flex)
-    db_user = os.environ["DB_USER"]  # e.g. 'my-db-user'
-    db_pass = os.environ["DB_PASS"]  # e.g. 'my-db-password'
-    db_name = os.environ["DB_NAME"]  # e.g. 'my-database'
-    db_port = os.environ["DB_PORT"]  # e.g. 3306
+    db_host = os.environ["DATABASE_HOST"]
+    db_user = os.environ["DATABASE_USER"]
+    db_pass = os.environ["DATABASE_PASS"]
+    db_name = os.environ["DATABASE_NAME"]
+    # db_port = int(os.environ.get("DATABASE_PORT", 3306))
+    db_port = int(os.environ["DATABASE_PORT"])
 
-    pool = sqlalchemy.create_engine(
-        # Equivalent URL:
-        # mysql+pymysql://<db_user>:<db_pass>@<db_host>:<db_port>/<db_name>
+    engine = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL.create(
             drivername="mysql+pymysql",
             username=db_user,
@@ -28,6 +20,53 @@ def connect_tcp_socket() -> sqlalchemy.engine.base.Engine:
             port=db_port,
             database=db_name,
         ),
-        # ...
     )
-    return pool
+    return engine
+
+
+def seed_users(conn):
+    print("🌱 Seeding users...")
+
+    conn.execute(sqlalchemy.text("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL
+        )
+    """))
+
+    conn.execute(sqlalchemy.text("""
+        INSERT INTO users (name, email)
+        VALUES
+            ('Alice', 'alice@example.com'),
+            ('Bob', 'bob@example.com'),
+            ('Charlie', 'charlie@example.com')
+        ON DUPLICATE KEY UPDATE name=VALUES(name), email=VALUES(email)
+    """))
+
+    print("✅ Seeded users!")
+
+
+if __name__ == "__main__":
+    print("🔌 Connecting to Cloud SQL...")
+
+    try:
+        engine = connect_tcp_socket()
+        with engine.begin() as conn:  # ← begin() に変更すると自動で commit される
+            print("✅ Connected!")
+
+            seed_users(conn)
+
+            result = conn.execute(sqlalchemy.text("SHOW TABLES"))
+            tables = result.fetchall()
+
+            if tables:
+                print("📋 Tables in database:")
+                for (table_name,) in tables:
+                    print(f" - {table_name}")
+            else:
+                print("⚠️ No tables found in the database.")
+
+    except Exception as e:
+        print("❌ Connection failed or error occurred:")
+        print(e)
